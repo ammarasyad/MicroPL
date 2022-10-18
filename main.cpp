@@ -56,7 +56,7 @@ void LoadDriver() {
     SC_HANDLE hService = nullptr;
 
     if (hSCM == nullptr) {
-//        std::cout << "OpenSCManager() failed. Error: " << GetLastError() << std::endl;
+        LOG("OpenSCManager failed. Error: " << GetLastError());
         fail = true;
         goto cleanup;
     }
@@ -79,16 +79,16 @@ void LoadDriver() {
         if (GetLastError() == ERROR_SERVICE_EXISTS) {
             hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
             if (hService == nullptr) {
-//                std::cout << "OpenService() failed. Error: " << GetLastError() << std::endl;
+                LOG("OpenService() failed. Error: " << GetLastError());
                 fail = true;
                 goto cleanup;
             }
         } else {
-//            std::cout << "CreateService() failed. Error: " << GetLastError() << std::endl;
+            LOG("CreateService() failed. Error: " << GetLastError());
         }
         hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
         if (hService == nullptr) {
-//            std::cout << "OpenService() failed. Error: " << GetLastError() << std::endl;
+            LOG("OpenService() failed. Error: " << GetLastError());
             fail = true;
             goto cleanup;
         }
@@ -97,15 +97,15 @@ void LoadDriver() {
     bService = StartService(hService, 0, nullptr);
     if (!bService) {
         if (GetLastError() == ERROR_SERVICE_ALREADY_RUNNING) {
-//            std::cout << "Driver already running" << std::endl;
+            LOG("Service already running");
             wasRunning = true;
             goto cleanup;
         } else {
-//            std::cout << "StartService() failed. Error: " << GetLastError() << std::endl;
+            LOG("StartService() failed. Error: " << GetLastError());
             goto cleanup;
         }
     } else {
-//        std::cout << "Driver started successfully" << std::endl;
+        LOG("Service started successfully");
         goto cleanup;
     }
 
@@ -128,24 +128,24 @@ void UnloadDriver() {
     SERVICE_STATUS status;
 
     if (hSCM == nullptr) {
-//        std::cout << "OpenSCManager() failed. Error: " << GetLastError() << std::endl;
+        LOG("OpenSCManager() failed. Error: " << GetLastError());
         fail = true;
         goto cleanup;
     }
 
     hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
     if (hService == nullptr) {
-//        std::cout << "OpenService() failed. Error: " << GetLastError() << std::endl;
+        LOG("OpenService() failed. Error: " << GetLastError());
         fail = true;
         goto cleanup;
     }
 
     if (!ControlService(hService, SERVICE_CONTROL_STOP, &status)) {
-//        std::cout << "ControlService() failed. Error: " << GetLastError() << std::endl;
+        LOG("ControlService() failed. Error: " << GetLastError());
         fail = true;
         goto cleanup;
     } else {
-//        std::cout << "Driver stopped successfully" << std::endl;
+        LOG("Service stopped successfully");
     }
 
     cleanup:
@@ -189,7 +189,6 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
         LoadDriver();
-//        RwDrv driver;
         auto driver = new RwDrv();
         while ((choice = getopt_long(argc, argv, "l:s:", long_options, nullptr)) != -1) {
             switch (choice) {
@@ -206,8 +205,8 @@ int main(int argc, char *argv[]) {
                     driver->readMem(PL2, &pl2, 2);
                     pl2 &= 0x3FF;
                     pl2 /= 8;
-//                    printf("Previous power limit 1: %llu\n", pl1);
-//                    std::cout << "Setting power limit 1 to " << optarg << " W" << std::endl;
+                    LOG("Previous power limit 1: " << pl1);
+                    LOG("Setting power limit 1 to " << optarg << " W");
                     uint64_t new_pl1 = (((uint64_t) std::atoi(optarg)) * 8 | 0x8000);
                     if (pl2 <= std::atoi(optarg)) {
                         driver->writeMem(PL2, &new_pl1, 2);
@@ -228,8 +227,8 @@ int main(int argc, char *argv[]) {
                     driver->readMem(PL2, &pl2, 2);
                     pl2 &= 0x3FF;
                     pl2 /= 8;
-//                    printf("Previous power limit 2: %llu\n", pl2);
-//                    std::cout << "Setting power limit 2 to " << optarg << " W" << std::endl;
+                    LOG("Previous power limit 2: " << pl2);
+                    LOG("Setting power limit 2 to " << optarg << " W");
                     uint64_t new_pl2 = (((uint64_t) std::atoi(optarg)) * 8 | 0x8000);
                     if (pl1 >= std::atoi(optarg)) {
                         driver->writeMem(PL1, &new_pl2, 2);
@@ -237,7 +236,6 @@ int main(int argc, char *argv[]) {
                     driver->writeMem(PL2, &new_pl2, 2);
                     break;
                 }
-//                case 'h':
                 default:
                     std::cout << help << std::endl;
                     goto done;

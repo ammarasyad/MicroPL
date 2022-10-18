@@ -1,13 +1,11 @@
-//
-// Created by ammar on 18/10/2022.
-//
 #ifndef MMIO_CLI_MAIN_H
 #define MMIO_CLI_MAIN_H
 
-//#define PL1 ((*((uint32_t volatile *) 0xFED159A0)) & 0x3FFF)
-//#define PL2 ((*((uint32_t volatile *) 0xFED159A4)) & 0x3FFF)
-
-#include <minwindef.h>
+#ifdef NDEBUG
+#define LOG(str) do {} while (0)
+#else
+#define LOG(str) std::cout << str << std::endl;
+#endif
 
 #define minPL 5
 #define maxPL 255
@@ -36,4 +34,4 @@ const struct option long_options[] = {
         {nullptr, 0, nullptr, 0}
 };
 
-#endif //MMIO_CLI_MAIN_H
+#endif
