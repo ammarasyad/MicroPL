@@ -23,7 +23,7 @@ public:
         CloseHandle(h);
     }
 
-    void readMem(uint64_t address, uint64_t *buffer, DWORD size) {
+    void readMem(uint64_t address, const uint64_t *buffer, DWORD size) {
         PhysRw_t A;
         A.physicalAddress = address;
         A.size = size;
@@ -32,7 +32,7 @@ public:
         DeviceIoControl(h, 0x222808, &A, sizeof(A), &A, sizeof(A), nullptr, nullptr);
     }
 
-    void writeMem(uint64_t address, uint64_t *buffer, DWORD size) {
+    void writeMem(uint64_t address, const uint64_t *buffer, DWORD size) {
         PhysRw_t A;
         A.physicalAddress = address;
         A.size = size;
@@ -56,7 +56,7 @@ void LoadDriver() {
     SC_HANDLE hService = nullptr;
 
     if (hSCM == nullptr) {
-        LOG("OpenSCManager failed. Error: " << GetLastError());
+        LOG("OpenSCManager failed. Error: " << GetLastError())
         fail = true;
         goto cleanup;
     }
@@ -79,16 +79,12 @@ void LoadDriver() {
         if (GetLastError() == ERROR_SERVICE_EXISTS) {
             hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
             if (hService == nullptr) {
-                LOG("OpenService() failed. Error: " << GetLastError());
+                LOG("OpenService() failed. Error: " << GetLastError())
                 fail = true;
                 goto cleanup;
             }
         } else {
-            LOG("CreateService() failed. Error: " << GetLastError());
-        }
-        hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
-        if (hService == nullptr) {
-            LOG("OpenService() failed. Error: " << GetLastError());
+            LOG("CreateService() failed. Error: " << GetLastError())
             fail = true;
             goto cleanup;
         }
@@ -97,16 +93,13 @@ void LoadDriver() {
     bService = StartService(hService, 0, nullptr);
     if (!bService) {
         if (GetLastError() == ERROR_SERVICE_ALREADY_RUNNING) {
-            LOG("Service already running");
+            LOG("Service already running")
             wasRunning = true;
-            goto cleanup;
         } else {
-            LOG("StartService() failed. Error: " << GetLastError());
-            goto cleanup;
+            LOG("StartService() failed. Error: " << GetLastError())
         }
     } else {
-        LOG("Service started successfully");
-        goto cleanup;
+        LOG("Service started successfully")
     }
 
     cleanup:
@@ -128,24 +121,24 @@ void UnloadDriver() {
     SERVICE_STATUS status;
 
     if (hSCM == nullptr) {
-        LOG("OpenSCManager() failed. Error: " << GetLastError());
+        LOG("OpenSCManager() failed. Error: " << GetLastError())
         fail = true;
         goto cleanup;
     }
 
     hService = OpenService(hSCM, "RwDrv", SERVICE_ALL_ACCESS);
     if (hService == nullptr) {
-        LOG("OpenService() failed. Error: " << GetLastError());
+        LOG("OpenService() failed. Error: " << GetLastError())
         fail = true;
         goto cleanup;
     }
 
     if (!ControlService(hService, SERVICE_CONTROL_STOP, &status)) {
-        LOG("ControlService() failed. Error: " << GetLastError());
+        LOG("ControlService() failed. Error: " << GetLastError())
         fail = true;
         goto cleanup;
     } else {
-        LOG("Service stopped successfully");
+        LOG("Service stopped successfully")
     }
 
     cleanup:
@@ -176,68 +169,71 @@ BOOL isElevated() {
     return fRet;
 }
 
+uint64_t checkIfValid(char* str) {
+    char* endPtr = nullptr;
+    auto pl = (uint64_t) std::strtol(str, &endPtr, 10);
+    if (endPtr == str) {
+        ERR("Invalid number!")
+        exit(1);
+    }
+    return pl;
+}
+
+uint64_t readPL(RwDrv* driver, uint32_t address) {
+    uint64_t pl;
+    driver->readMem(address, &pl, 2);
+    return (pl & 0x3FF) >> 3;
+}
+
+void writePL(RwDrv* driver, uint32_t address, uint64_t value) {
+    value = (value * 8) | 0x8000;
+    driver->writeMem(address, &value, 2);
+}
+
 int main(int argc, char *argv[]) {
     int choice;
     BOOL start = false;
     if (argc == 1 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-        std::cout << help << std::endl;
+        INFO(help)
     } else {
         start = true;
         if (!isElevated()) {
-            std::cout << "This program requires administrator rights. Rerun the application with administrator rights."
-                      << std::endl;
+            ERR("This program requires administrator rights. Rerun the application with administrator rights.")
             exit(1);
         }
         LoadDriver();
         auto driver = new RwDrv();
         while ((choice = getopt_long(argc, argv, "l:s:", long_options, nullptr)) != -1) {
+            auto pl = checkIfValid(optarg);
+            if (pl < minPL || pl > maxPL) {
+                ERR("Invalid power limits!")
+                goto done;
+            }
             switch (choice) {
                 case 'l': {
-                    if (std::atoi(optarg) < minPL || std::atoi(optarg) > maxPL) {
-                        std::cout << "Invalid power limits!" << std::endl;
-                        goto done;
+                    uint64_t pl1 = readPL(driver, PL1);
+                    uint64_t pl2 = readPL(driver, PL2);
+                    LOG("Previous power limit 1: " << pl1)
+                    LOG("Setting power limit 1 to " << pl << " W")
+                    if (pl2 <= pl) {
+                        writePL(driver, PL2, pl);
                     }
-                    uint64_t pl1;
-                    driver->readMem(PL1, &pl1, 2);
-                    pl1 &= 0x3FF;
-                    pl1 /= 8;
-                    uint64_t pl2;
-                    driver->readMem(PL2, &pl2, 2);
-                    pl2 &= 0x3FF;
-                    pl2 /= 8;
-                    LOG("Previous power limit 1: " << pl1);
-                    LOG("Setting power limit 1 to " << optarg << " W");
-                    uint64_t new_pl1 = (((uint64_t) std::atoi(optarg)) * 8 | 0x8000);
-                    if (pl2 <= std::atoi(optarg)) {
-                        driver->writeMem(PL2, &new_pl1, 2);
-                    }
-                    driver->writeMem(PL1, &new_pl1, 2);
+                    writePL(driver, PL1, pl);
                     break;
                 }
                 case 's': {
-                    if (std::atoi(optarg) < minPL || std::atoi(optarg) > maxPL) {
-                        std::cout << "Invalid power limits!" << std::endl;
-                        goto done;
+                    uint64_t pl1 = readPL(driver, PL1);
+                    uint64_t pl2 = readPL(driver, PL2);
+                    LOG("Previous power limit 2: " << pl2)
+                    LOG("Setting power limit 2 to " << pl << " W")
+                    if (pl1 >= pl) {
+                        writePL(driver, PL1, pl);
                     }
-                    uint64_t pl1;
-                    driver->readMem(PL1, &pl1, 2);
-                    pl1 &= 0x3FF;
-                    pl1 /= 8;
-                    uint64_t pl2;
-                    driver->readMem(PL2, &pl2, 2);
-                    pl2 &= 0x3FF;
-                    pl2 /= 8;
-                    LOG("Previous power limit 2: " << pl2);
-                    LOG("Setting power limit 2 to " << optarg << " W");
-                    uint64_t new_pl2 = (((uint64_t) std::atoi(optarg)) * 8 | 0x8000);
-                    if (pl1 >= std::atoi(optarg)) {
-                        driver->writeMem(PL1, &new_pl2, 2);
-                    }
-                    driver->writeMem(PL2, &new_pl2, 2);
+                    writePL(driver, PL2, pl);
                     break;
                 }
                 default:
-                    std::cout << help << std::endl;
+                    INFO(help)
                     goto done;
             }
         }

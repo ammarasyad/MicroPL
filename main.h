@@ -7,6 +7,10 @@
 #define LOG(str) std::cout << str << std::endl;
 #endif
 
+// Just for readability I guess?
+#define ERR(str) std::cout << str << std::endl;
+#define INFO(str) std::cout << str << std::endl;
+
 #define minPL 5
 #define maxPL 255
 
@@ -30,7 +34,6 @@ CPU MMIO Register Application
 const struct option long_options[] = {
         {"power-limit-1", required_argument, nullptr, 'l'},
         {"power-limit-2", required_argument, nullptr, 's'},
-        {"help", no_argument, nullptr, 'h'},
         {nullptr, 0, nullptr, 0}
 };
 
