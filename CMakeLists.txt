@@ -4,4 +4,4 @@ project(MMIO_CLI)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-add_executable(MMIO_CLI main.cpp main.h)
+add_executable(MMIO_CLI main.cpp main.h rwdrv.h)

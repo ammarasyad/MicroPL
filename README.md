@@ -8,8 +8,10 @@ This **will not** work on AMD CPUs (pretty obvious).
 
 > Usage: mmio [OPTION]...
 >
->/h, --help                      displays the help message and exit
+>-h, --help                      displays the help message and exit
 > 
->/l, --power-limit-1 <number>    set the power limit 1 register in watts. range: 5 - 255
+>-l, --power-limit-1 <number>    set the power limit 1 register in watts. range: 5 - 255
 > 
->/s, --power-limit-2 <number>    (optional) set the power limit 2 register in watts. range: 5 - 255)
+>-s, --power-limit-2 <number>    (optional) set the power limit 2 register in watts. range: 5 - 255
+> 
+> -e, --epp <number>              (optional) set the energy performance preference register. range: 0 - 255

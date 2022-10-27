@@ -3,47 +3,12 @@
 #include <filesystem>
 #include <handleapi.h>
 #include <fileapi.h>
-#include <ioapiset.h>
 #include <winsvc.h>
 #include <windows.h>
+#include <bitset>
+#include <thread>
 #include "main.h"
-
-class RwDrv {
-public:
-    RwDrv() {
-        h = CreateFileA(R"(\\.\RwDrv)", GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                        nullptr);
-        if (h == INVALID_HANDLE_VALUE) {
-            std::cout << "Failed to open driver handle" << std::endl;
-            exit(1);
-        }
-    }
-
-    ~RwDrv() {
-        CloseHandle(h);
-    }
-
-    void readMem(uint64_t address, const uint64_t *buffer, DWORD size) {
-        PhysRw_t A;
-        A.physicalAddress = address;
-        A.size = size;
-        A.unknown = 0;
-        A.address = (uint64_t) buffer;
-        DeviceIoControl(h, 0x222808, &A, sizeof(A), &A, sizeof(A), nullptr, nullptr);
-    }
-
-    void writeMem(uint64_t address, const uint64_t *buffer, DWORD size) {
-        PhysRw_t A;
-        A.physicalAddress = address;
-        A.size = size;
-        A.unknown = 0;
-        A.address = (uint64_t) buffer;
-        DeviceIoControl(h, 0x22280C, &A, sizeof(A), nullptr, 0, nullptr, nullptr);
-    }
-
-private:
-    HANDLE h;
-};
+#include "rwdrv.h"
 
 BOOL wasRunning = false;
 
@@ -136,7 +101,6 @@ void UnloadDriver() {
     if (!ControlService(hService, SERVICE_CONTROL_STOP, &status)) {
         LOG("ControlService() failed. Error: " << GetLastError())
         fail = true;
-        goto cleanup;
     } else {
         LOG("Service stopped successfully")
     }
@@ -190,6 +154,21 @@ void writePL(RwDrv* driver, uint32_t address, uint64_t value) {
     driver->writeMem(address, &value, 2);
 }
 
+uint64_t readEPP(RwDrv* driver, int reg) {
+    uint64_t msr = 0;
+    driver->readMSR(reg, &msr);
+    return msr;
+}
+
+void writeEPP(RwDrv* driver, int reg, uint64_t value) {
+    const unsigned int core = std::thread::hardware_concurrency();
+    HANDLE hThread = GetCurrentThread();
+    for (int i = 0; i < core; i++) {
+        SetThreadAffinityMask(hThread, 1 << i);
+        driver->writeMSR(reg, value);
+    }
+}
+
 int main(int argc, char *argv[]) {
     int choice;
     BOOL start = false;
@@ -203,33 +182,49 @@ int main(int argc, char *argv[]) {
         }
         LoadDriver();
         auto driver = new RwDrv();
-        while ((choice = getopt_long(argc, argv, "l:s:", long_options, nullptr)) != -1) {
-            auto pl = checkIfValid(optarg);
-            if (pl < minPL || pl > maxPL) {
-                ERR("Invalid power limits!")
-                goto done;
-            }
+        while ((choice = getopt_long(argc, argv, "l:s:e:", long_options, nullptr)) != -1) {
+            uint64_t argValue = checkIfValid(optarg);
             switch (choice) {
                 case 'l': {
+                    if (argValue < minPL || argValue > maxPL) {
+                        ERR("Invalid power limits!")
+                        goto done;
+                    }
                     uint64_t pl1 = readPL(driver, PL1);
                     uint64_t pl2 = readPL(driver, PL2);
                     LOG("Previous power limit 1: " << pl1)
-                    LOG("Setting power limit 1 to " << pl << " W")
-                    if (pl2 <= pl) {
-                        writePL(driver, PL2, pl);
+                    LOG("Setting power limit 1 to " << argValue << " W")
+                    if (pl2 <= argValue) {
+                        writePL(driver, PL2, argValue);
                     }
-                    writePL(driver, PL1, pl);
+                    writePL(driver, PL1, argValue);
                     break;
                 }
                 case 's': {
+                    if (argValue < minPL || argValue > maxPL) {
+                        ERR("Invalid power limits!")
+                        goto done;
+                    }
                     uint64_t pl1 = readPL(driver, PL1);
                     uint64_t pl2 = readPL(driver, PL2);
                     LOG("Previous power limit 2: " << pl2)
-                    LOG("Setting power limit 2 to " << pl << " W")
-                    if (pl1 >= pl) {
-                        writePL(driver, PL1, pl);
+                    LOG("Setting power limit 2 to " << argValue << " W")
+                    if (pl1 >= argValue) {
+                        writePL(driver, PL1, argValue);
                     }
-                    writePL(driver, PL2, pl);
+                    writePL(driver, PL2, argValue);
+                    break;
+                }
+                case 'e': {
+                    if (argValue > maxEPP) {
+                        ERR("Invalid EPP!")
+                        goto done;
+                    }
+                    uint64_t value = readEPP(driver, IA32_HWP_REQUEST);
+                    LOG("Previous EPP: " << ((value & 0xFF000000) >> 24))
+                    value = ((value & ~(uint64_t) 0xFF000000) | argValue << 24);
+                    LOG("Setting EPP to " << argValue);
+                    writeEPP(driver, IA32_HWP_REQUEST, value);
                     break;
                 }
                 default:
