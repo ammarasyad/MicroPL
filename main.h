@@ -2,6 +2,7 @@
 #define MMIO_CLI_MAIN_H
 
 #include <cstdint>
+#include "version.h"
 
 #ifdef NDEBUG
 #define LOG(str) do {} while (0);
@@ -30,13 +31,13 @@
 #define HIDWORD(x) DWORDn(x,HIGH_IND(x,DWORD))
 #define __PAIR64__(high, low) (((uint64_t) (high) << 32) | (low))
 
-const char* help = R"(
-CPU MMIO Register Application
-  Usage: mmio [OPTION]...
-  -h, --help                      display this help and exit
-  -l, --power-limit-1 <number>    set the power limit 1 register in watts. range: 5 - 255
-  -s, --power-limit-2 <number>    (optional) set the power limit 2 register in watts. range: 5 - 255
-  -e, --epp <number>              (optional) set the energy performance preference register. range: 0 - 255)";
+const std::string help = "\n"
+"CPU MMIO Register Application v" + std::to_string(MMIO_VERSION_MAJOR) + "." + std::to_string(MMIO_VERSION_MINOR) + "." + std::to_string(MMIO_VERSION_PATCH) + "\n"
+  "Usage: mmio [OPTION]...\n"
+  " -h, --help                      display this help and exit\n"
+  " -l, --power-limit-1 <number>    set the power limit 1 register in watts. range: 5 - 255\n"
+  " -s, --power-limit-2 <number>    (optional) set the power limit 2 register in watts. range: 5 - 255\n"
+  " -e, --epp <number>              (optional) set the energy performance preference register. range: 0 - 255\n";
 
 const struct option long_options[] = {
         {"power-limit-1", required_argument, nullptr, 'l'},

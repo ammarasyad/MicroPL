@@ -9,6 +9,7 @@
 #include <thread>
 #include "main.h"
 #include "rwdrv.h"
+#include "version.h"
 
 BOOL wasRunning = false;
 
