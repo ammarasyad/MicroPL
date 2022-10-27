@@ -9,6 +9,7 @@
 #include <thread>
 #include "main.h"
 #include "rwdrv.h"
+#include "version.h"
 
 BOOL wasRunning = false;
 
@@ -223,7 +224,7 @@ int main(int argc, char *argv[]) {
                     uint64_t value = readEPP(driver, IA32_HWP_REQUEST);
                     LOG("Previous EPP: " << ((value & 0xFF000000) >> 24))
                     value = ((value & ~(uint64_t) 0xFF000000) | argValue << 24);
-                    LOG("Setting EPP to " << argValue);
+                    LOG("Setting EPP to " << argValue)
                     writeEPP(driver, IA32_HWP_REQUEST, value);
                     break;
                 }
