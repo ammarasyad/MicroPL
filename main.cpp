@@ -134,7 +134,7 @@ BOOL isElevated() {
     return fRet;
 }
 
-uint64_t checkIfValid(char* str) {
+uint64_t checkIfValid(const char* str) {
     char* endPtr = nullptr;
     auto pl = (uint64_t) std::strtol(str, &endPtr, 10);
     if (endPtr == str) {
@@ -144,29 +144,29 @@ uint64_t checkIfValid(char* str) {
     return pl;
 }
 
-uint64_t readPL(RwDrv* driver, uint32_t address) {
+uint64_t readPL(RwDrv& driver, const uint32_t address) {
     uint64_t pl;
-    driver->readMem(address, &pl, 2);
+    driver.readMem(address, &pl, 2);
     return (pl & 0x3FF) >> 3;
 }
 
-void writePL(RwDrv* driver, uint32_t address, uint64_t value) {
+void writePL(RwDrv& driver, const uint32_t address, uint64_t value) {
     value = (value * 8) | 0x8000;
-    driver->writeMem(address, &value, 2);
+    driver.writeMem(address, &value, 2);
 }
 
-uint64_t readEPP(RwDrv* driver, int reg) {
+uint64_t readEPP(RwDrv& driver, int reg) {
     uint64_t msr = 0;
-    driver->readMSR(reg, &msr);
+    driver.readMSR(reg, msr);
     return msr;
 }
 
-void writeEPP(RwDrv* driver, int reg, uint64_t value) {
+void writeEPP(RwDrv& driver, int reg, uint64_t value) {
     const unsigned int core = std::thread::hardware_concurrency();
     HANDLE hThread = GetCurrentThread();
     for (int i = 0; i < core; i++) {
         SetThreadAffinityMask(hThread, 1 << i);
-        driver->writeMSR(reg, value);
+        driver.writeMSR(reg, value);
     }
 }
 
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
         LoadDriver();
-        auto driver = new RwDrv();
+        static RwDrv driver;
         while ((choice = getopt_long(argc, argv, "l:s:e:", long_options, nullptr)) != -1) {
             uint64_t argValue = checkIfValid(optarg);
             switch (choice) {
@@ -191,9 +191,8 @@ int main(int argc, char *argv[]) {
                         ERR("Invalid power limits!")
                         goto done;
                     }
-                    uint64_t pl1 = readPL(driver, PL1);
                     uint64_t pl2 = readPL(driver, PL2);
-                    LOG("Previous power limit 1: " << pl1)
+                    LOG("Previous power limit 1: " << readPL(driver, PL1))
                     LOG("Setting power limit 1 to " << argValue << " W")
                     if (pl2 <= argValue) {
                         writePL(driver, PL2, argValue);
@@ -207,8 +206,7 @@ int main(int argc, char *argv[]) {
                         goto done;
                     }
                     uint64_t pl1 = readPL(driver, PL1);
-                    uint64_t pl2 = readPL(driver, PL2);
-                    LOG("Previous power limit 2: " << pl2)
+                    LOG("Previous power limit 2: " << readPL(driver, PL2))
                     LOG("Setting power limit 2 to " << argValue << " W")
                     if (pl1 >= argValue) {
                         writePL(driver, PL1, argValue);

@@ -48,14 +48,14 @@ public:
         DeviceIoControl(h, 0x22280C, &A, sizeof(A), nullptr, 0, nullptr, nullptr);
     }
 
-    void readMSR(int reg, uint64_t* value) {
+    void readMSR(int reg, uint64_t& value) {
         MSRRw_t A;
         A.reg = reg;
         A.high = 0;
         A.low = 0;
 
         DeviceIoControl(h, 0x222848, &A, sizeof(A), &A, sizeof(A), nullptr, nullptr);
-        *value = __PAIR64__(A.high, A.low);
+        value = __PAIR64__(A.high, A.low);
     }
 
     void writeMSR(int reg, uint64_t value) {
