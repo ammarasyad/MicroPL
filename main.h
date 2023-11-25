@@ -1,7 +1,6 @@
 #ifndef MMIO_CLI_MAIN_H
 #define MMIO_CLI_MAIN_H
 
-#include <cstdint>
 #include "version.h"
 
 #ifdef NDEBUG
@@ -39,7 +38,7 @@ const std::string help = "\n"
   " -s, --power-limit-2 <number>    (optional) set the power limit 2 register in watts. range: 5 - 255\n"
   " -e, --epp <number>              (optional) set the energy performance preference register. range: 0 - 255\n";
 
-const struct option long_options[] = {
+constexpr option long_options[] = {
         {"power-limit-1", required_argument, nullptr, 'l'},
         {"power-limit-2", required_argument, nullptr, 's'},
         {"epp", required_argument, nullptr, 'e'},
